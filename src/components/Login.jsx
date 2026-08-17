@@ -3,7 +3,7 @@ import { useNavigate, Link } from 'react-router-dom'
 
 const Login = () => {
   const navigate = useNavigate();
-
+  const API_URL = import.meta.env.VITE_API_URL;
   const [data, setData] = useState({
     user_email: '',
     user_password: ''
@@ -22,7 +22,7 @@ const Login = () => {
     setLoading(true);
 
     try {
-      const res = await fetch('http://localhost:3000/', {
+      const res = await fetch(`${API_URL}/`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'

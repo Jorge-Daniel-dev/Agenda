@@ -2,6 +2,7 @@ import React, { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 
 const Forms = () => {
+  const API_URL = import.meta.env.VITE_API_URL;
   const navigate = useNavigate();
   const [data, setData] = useState({
     user_name: '',
@@ -20,10 +21,11 @@ const Forms = () => {
   }
 
   const sendData = async () => {
+
     setError('');
     setLoading(true);
     try {
-      const res = await fetch('http://localhost:3000/Forms', {
+      const res = await fetch(`${API_URL}/Forms`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'

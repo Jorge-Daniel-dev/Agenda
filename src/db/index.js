@@ -13,7 +13,7 @@ import jwt from 'jsonwebtoken'
 const app = express();
 app.use(express.json());
 app.use(cors({
-  origin: 'https://agenda-lilac-omega.vercel.app/'
+  origin: 'https://agenda-lilac-omega.vercel.app' // sin "/" al final
 }))
 
 const JWT_SECRET = process.env.JWT_SECRET 
@@ -78,7 +78,7 @@ app.post('/', async (req, res) => {
         }
 
         const token = jwt.sign(
-            { id: usuario.id, user_email: usuario.user_email, rol: usuario.rol },
+            { id: usuario.id, user_email: usuario.user_email, rol: usuario.rol, user_name: usuario.user_name },
             JWT_SECRET,
             { expiresIn: '2h' }
         )
@@ -128,11 +128,14 @@ app.get('/consultas', autenticar, async (req, res) => {
 
 // ---------- EVENTOS ----------
 
-// Listar TODOS los eventos (de cualquier usuario), solo se exige estar logueado
+// Listar TODOS los eventos, con el nombre de quién lo creó
 app.get('/eventos', autenticar, async (req, res) => {
     try {
         const result = await pool.query(
-            `SELECT * FROM eventos ORDER BY dia, hora`
+            `SELECT eventos.*, users.user_name 
+             FROM eventos 
+             JOIN users ON eventos.user_id = users.id 
+             ORDER BY dia, hora`
         )
         res.json(result.rows)
     } catch (error) {
@@ -144,7 +147,7 @@ app.get('/eventos', autenticar, async (req, res) => {
 // Crear evento (se guarda quién lo creó, pero lo ven todos)
 app.post('/eventos', autenticar, async (req, res) => {
     try {
-        const { id: userId } = req.usuario
+        const { id: userId, user_name } = req.usuario
         const { titulo, dia, hora, categoria, nota } = req.body
 
         const result = await pool.query(
@@ -152,7 +155,7 @@ app.post('/eventos', autenticar, async (req, res) => {
              VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
             [userId, titulo, dia, hora, categoria, nota]
         )
-        res.status(201).json(result.rows[0])
+        res.status(201).json({ ...result.rows[0], user_name })
     } catch (error) {
         console.error(error)
         res.status(500).json({ mensaje: 'Error en el servidor' })
@@ -180,11 +183,14 @@ app.delete('/eventos/:id', autenticar, async (req, res) => {
 
 // ---------- NOTAS ----------
 
-// Listar TODAS las notas (de cualquier usuario), solo se exige estar logueado
+// Listar TODAS las notas, con el nombre de quién la creó
 app.get('/notas', autenticar, async (req, res) => {
     try {
         const result = await pool.query(
-            `SELECT * FROM notas ORDER BY creado_en DESC`
+            `SELECT notas.*, users.user_name 
+             FROM notas 
+             JOIN users ON notas.user_id = users.id 
+             ORDER BY notas.creado_en DESC`
         )
         res.json(result.rows)
     } catch (error) {
@@ -196,14 +202,14 @@ app.get('/notas', autenticar, async (req, res) => {
 // Crear nota (se guarda quién la creó, pero la ven todos)
 app.post('/notas', autenticar, async (req, res) => {
     try {
-        const { id: userId } = req.usuario
+        const { id: userId, user_name } = req.usuario
         const { texto, color } = req.body
 
         const result = await pool.query(
             `INSERT INTO notas (user_id, texto, color) VALUES ($1, $2, $3) RETURNING *`,
             [userId, texto, color]
         )
-        res.status(201).json(result.rows[0])
+        res.status(201).json({ ...result.rows[0], user_name })
     } catch (error) {
         console.error(error)
         res.status(500).json({ mensaje: 'Error en el servidor' })

@@ -64,30 +64,53 @@ export default function WorkAgenda() {
   const [modalDay, setModalDay] = useState(null);
   const [form, setForm] = useState({ title: "", time: "09:00", category: "meeting", note: "" });
 
-  // Carga inicial: trae SOLO lo que pertenece al usuario logueado (según el token)
+  // Carga inicial: trae eventos y notas de TODOS los usuarios logueados
   useEffect(() => {
     async function cargarDatos() {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        window.location.href = '/'; // sin token, al login
+        return;
+      }
+
       try {
         const [resEventos, resNotas] = await Promise.all([
           fetch(`${API_URL}/eventos`, { headers: authHeaders() }),
           fetch(`${API_URL}/notas`, { headers: authHeaders() }),
         ]);
 
+        // Token expirado o inválido -> cerrar sesión y mandar al login
+        if (resEventos.status === 401 || resNotas.status === 401) {
+          localStorage.removeItem('token');
+          window.location.href = '/';
+          return;
+        }
+
         if (resEventos.ok) {
           const data = await resEventos.json();
-          setEvents(data.map((e) => ({
-            id: e.id,
-            day: e.dia.slice(0, 10),
-            time: e.hora.slice(0, 5),
-            title: e.titulo,
-            category: e.categoria,
-            note: e.nota || "",
-          })));
+          if (Array.isArray(data)) {
+            setEvents(data.map((e) => ({
+              id: e.id,
+              day: e.dia.slice(0, 10),
+              time: e.hora.slice(0, 5),
+              title: e.titulo,
+              category: e.categoria,
+              note: e.nota || "",
+              autor: e.user_name || "",
+            })));
+          }
         }
 
         if (resNotas.ok) {
           const data = await resNotas.json();
-          setNotes(data.map((n) => ({ id: n.id, text: n.texto, color: n.color })));
+          if (Array.isArray(data)) {
+            setNotes(data.map((n) => ({
+              id: n.id,
+              text: n.texto,
+              color: n.color,
+              autor: n.user_name || "",
+            })));
+          }
         }
       } catch (error) {
         console.error(error);
@@ -141,6 +164,7 @@ export default function WorkAgenda() {
             title: nuevo.titulo,
             category: nuevo.categoria,
             note: nuevo.nota || "",
+            autor: nuevo.user_name || "",
           },
         ]);
       }
@@ -176,7 +200,12 @@ export default function WorkAgenda() {
       });
       if (res.ok) {
         const nueva = await res.json();
-        setNotes((prev) => [{ id: nueva.id, text: nueva.texto, color: nueva.color }, ...prev]);
+        setNotes((prev) => [{
+          id: nueva.id,
+          text: nueva.texto,
+          color: nueva.color,
+          autor: nueva.user_name || "",
+        }, ...prev]);
       }
     } catch (error) {
       console.error(error);
@@ -201,7 +230,7 @@ export default function WorkAgenda() {
   if (loading) {
     return (
       <div style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: "100vh", color: "#8B94A0" }}>
-        Cargando tu agenda…
+        Cargando la agenda…
       </div>
     );
   }
@@ -260,6 +289,9 @@ export default function WorkAgenda() {
               {notes.map((n) => (
                 <div key={n.id} style={{ background: n.color, borderRadius: 8, padding: "9px 10px", fontSize: 13, color: "#1E2A3A", position: "relative", lineHeight: 1.4 }}>
                   <span style={{ paddingRight: 18 }}>{n.text}</span>
+                  {n.autor && (
+                    <div style={{ fontSize: 10, color: "#8B94A0", marginTop: 4 }}>{n.autor}</div>
+                  )}
                   <button onClick={() => deleteNote(n.id)} className="icon-btn" style={{ position: "absolute", top: 6, right: 6, borderRadius: 5, padding: 3 }}>
                     <X size={12} color="#6B7280" />
                   </button>
@@ -327,6 +359,11 @@ export default function WorkAgenda() {
                         </div>
                         {ev.note && (
                           <div style={{ fontSize: 11, color: "#8B94A0", marginTop: 2 }}>{ev.note}</div>
+                        )}
+                        {ev.autor && (
+                          <div style={{ fontSize: 10, color: "#B5BAAF", marginTop: 3, fontStyle: "italic" }}>
+                            — {ev.autor}
+                          </div>
                         )}
                         <button onClick={() => deleteEvent(ev.id)} className="icon-btn" style={{ position: "absolute", top: 5, right: 4, borderRadius: 4, padding: 2 }}>
                           <Trash2 size={11} color="#8B94A0" />
